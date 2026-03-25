@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.3.0 -->
+<!-- v1.4.1 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -294,7 +294,8 @@
   /* ===== SKILL ===== */
   .skill-bar {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     flex-shrink: 0;
   }
   .btn-skill {
@@ -322,6 +323,26 @@
     color: #555;
     background: transparent;
   }
+
+  /* ミュートボタン */
+  .btn-mute {
+    height: 36px;
+    width: 36px;
+    border-radius: 50%;
+    border: 1px solid #2a3a5a;
+    background: #16213e;
+    color: #668;
+    font-size: 16px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: opacity 0.1s, transform 0.08s;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-mute:active { transform: scale(0.9); opacity: 0.8; }
+  .btn-mute.muted  { color: #e94560; border-color: #e94560; }
 
   /* Combo multiplier badge on COMBO stat */
   #combo-mult {
@@ -379,6 +400,7 @@
 
     <!-- スキルバー -->
     <div class="skill-bar">
+      <button class="btn-mute" id="btn-mute" aria-label="ミュート切替">🔊</button>
       <button class="btn-skill" id="btn-skill">⚡ 集中モード</button>
     </div>
 
@@ -416,7 +438,87 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.1';
+
+/* ===================================================
+   SOUND ENGINE (Web Audio API)
+=================================================== */
+const SE = (() => {
+  let ctx = null;         // AudioContext（遅延初期化）
+  let muted = false;
+
+  /* ユーザー操作後に一度だけ初期化 */
+  function init() {
+    if (ctx) return;
+    try {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      ctx = null;
+    }
+  }
+
+  /* 共通：オシレータ＋ゲイン再生ユーティリティ
+     params: { freq, type, vol, attack, decay, freqEnd } */
+  function play(params) {
+    if (muted || !ctx) return;
+    try {
+      const t   = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain= ctx.createGain();
+
+      osc.type = params.type || 'sine';
+      osc.frequency.setValueAtTime(params.freq, t);
+      if (params.freqEnd !== undefined) {
+        osc.frequency.exponentialRampToValueAtTime(params.freqEnd, t + params.decay);
+      }
+
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(params.vol, t + (params.attack || 0.005));
+      gain.gain.exponentialRampToValueAtTime(0.001, t + params.decay);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + params.decay + 0.01);
+    } catch (e) { /* 再生失敗は無視 */ }
+  }
+
+  return {
+    init,
+    get muted() { return muted; },
+    setMuted(v) { muted = !!v; },
+
+    /* 成功音：ピコン（880Hz→1320Hz、短め） */
+    success() {
+      play({ freq: 880, freqEnd: 1320, type: 'sine', vol: 0.15, attack: 0.005, decay: 0.18 });
+    },
+
+    /* 失敗音：低め落下（300Hz→180Hz） */
+    fail() {
+      play({ freq: 300, freqEnd: 180, type: 'triangle', vol: 0.15, attack: 0.005, decay: 0.22 });
+    },
+
+    /* クリック音：極短パルス */
+    click() {
+      play({ freq: 440, type: 'square', vol: 0.07, attack: 0.002, decay: 0.04 });
+    },
+
+    /* スキル発動音：ちょっと特別感（コード風・2音） */
+    skill() {
+      play({ freq: 660, freqEnd: 990, type: 'sine', vol: 0.12, attack: 0.01, decay: 0.25 });
+      setTimeout(() => {
+        play({ freq: 880, freqEnd: 1100, type: 'sine', vol: 0.10, attack: 0.01, decay: 0.2 });
+      }, 60);
+    },
+
+    /* ゲーム開始音：上昇チャイム */
+    start() {
+      [523, 659, 784].forEach((f, i) => {
+        setTimeout(() => play({ freq: f, type: 'sine', vol: 0.12, attack: 0.01, decay: 0.15 }), i * 70);
+      });
+    },
+  };
+})();
 
 /* ===================================================
    BEST SCORE
@@ -581,6 +683,7 @@ const INITIAL_STATE = {
   prevCaseIndex: -1,
   focusMode: false,  // 集中モード発動中
   focusUsed: false,  // 集中モード使用済み
+  muted: false,      // ミュート状態
 };
 
 let state = Object.assign({}, INITIAL_STATE);
@@ -609,6 +712,7 @@ const elRank    = document.getElementById('over-rank');
 const elTitleBest = document.getElementById('title-best');
 const elComboMult = document.getElementById('combo-mult');
 const elBtnSkill  = document.getElementById('btn-skill');
+const elBtnMute   = document.getElementById('btn-mute');
 
 /* ===================================================
    SCREEN
@@ -666,6 +770,17 @@ function updateSkillUI() {
     elBtnSkill.disabled = false;
     elBtnSkill.classList.remove('active');
     elBtnSkill.textContent = '⚡ 集中モード';
+  }
+}
+
+/* ミュートボタンのUI同期 */
+function updateMuteUI() {
+  if (state.muted) {
+    elBtnMute.textContent = '🔇';
+    elBtnMute.classList.add('muted');
+  } else {
+    elBtnMute.textContent = '🔊';
+    elBtnMute.classList.remove('muted');
   }
 }
 
@@ -764,6 +879,8 @@ function onChoiceClick(btn) {
   if (state.locked) return;
   state.locked = true;
 
+  SE.click(); // ボタン押下音
+
   // disable all buttons
   elChoices.forEach(b => { b.disabled = true; });
 
@@ -790,6 +907,7 @@ function onChoiceClick(btn) {
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
     if (!wasFocusMode) btn.classList.add('correct');
     showFeedback(true, gained);
+    SE.success(); // 成功音
     // スコア・コンボをポップ
     popStat(elScore);
     popStat(elCombo);
@@ -802,6 +920,7 @@ function onChoiceClick(btn) {
     btn.classList.add('wrong');
     elChoices.forEach(b => { if (b.dataset.correct === '1') b.classList.add('correct'); });
     showFeedback(false, 0);
+    SE.fail(); // 失敗音
   }
 
   updateStatusUI();
@@ -834,6 +953,9 @@ function showFeedback(success, gained) {
 function startGame() {
   stopTimer();
 
+  // ミュート状態をリスタート間で引き継ぐ
+  const prevMuted = state.muted;
+
   state = {
     score: 0,
     trust: 10,
@@ -846,10 +968,16 @@ function startGame() {
     prevCaseIndex: -1,
     focusMode: false,
     focusUsed: false,
+    muted: prevMuted,
   };
+
+  SE.init();          // AudioContext 初期化（初回のみ有効）
+  SE.setMuted(state.muted);
+  SE.start();         // ゲーム開始チャイム
 
   updateStatusUI();
   updateSkillUI();
+  updateMuteUI();
   elTimerBar.style.transition = 'none';
   elTimerBar.style.width = '100%';
   // re-enable transition after forced reflow
@@ -875,11 +1003,14 @@ renderTitleBest();
 
 document.getElementById('btn-start').addEventListener('pointerup', (e) => {
   e.preventDefault();
+  SE.init();
+  SE.click();
   startGame();
 });
 
 document.getElementById('btn-restart').addEventListener('pointerup', (e) => {
   e.preventDefault();
+  SE.click();
   startGame();
 });
 
@@ -896,7 +1027,18 @@ elBtnSkill.addEventListener('pointerup', (e) => {
   if (state.phase !== 'playing') return;
   if (state.focusUsed || state.focusMode || state.locked) return;
   state.focusMode = true;
+  SE.skill();
   updateSkillUI();
+});
+
+// ミュートボタン
+elBtnMute.addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  SE.init(); // 未初期化の場合に備えて
+  state.muted = !state.muted;
+  SE.setMuted(state.muted);
+  updateMuteUI();
+  if (!state.muted) SE.click(); // ミュート解除時のみ音を鳴らす
 });
 
 })();
