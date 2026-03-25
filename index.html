@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.2.0 -->
+<!-- v1.3.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -67,31 +67,45 @@
   /* Status bar */
   .status-bar {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     flex-shrink: 0;
   }
   .stat-box {
     flex: 1;
     background: #16213e;
     border-radius: 10px;
-    padding: 8px 6px;
+    padding: 7px 4px 6px;
     text-align: center;
     border: 1px solid #0f3460;
+    transition: transform 0.15s;
   }
-  .stat-label { font-size: 10px; color: #888; letter-spacing: 0.5px; }
-  .stat-value { font-size: 22px; font-weight: bold; line-height: 1.2; }
+  /* スコア・コンボのボックスを強調 */
+  .stat-box:first-child  { border-color: rgba(240,192,64,0.35); }
+  .stat-box:last-child   { border-color: rgba(167,139,250,0.35); }
+  .stat-label { font-size: 9px; color: #777; letter-spacing: 0.8px; text-transform: uppercase; }
+  .stat-value { font-size: 22px; font-weight: bold; line-height: 1.15; }
+  /* スコアとコンボは1段大きく */
+  .stat-box:first-child .stat-value,
+  .stat-box:last-child  .stat-value { font-size: 26px; }
   .stat-value.score { color: #f0c040; }
   .stat-value.trust { color: #4ecca3; }
   .stat-value.time  { color: #e94560; }
   .stat-value.combo { color: #a78bfa; }
+  /* スコア更新アニメーション用 */
+  @keyframes stat-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  .stat-pop { animation: stat-pop 0.25s ease-out; }
 
   /* Case card */
   .case-card {
     flex: 1;
     background: #16213e;
     border-radius: 14px;
-    border: 1px solid #0f3460;
-    padding: 16px;
+    border: 1px solid #1a2a50;
+    padding: 14px 16px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -101,23 +115,25 @@
   .case-tag {
     display: inline-block;
     font-size: 11px;
-    padding: 3px 8px;
+    padding: 3px 10px;
     border-radius: 20px;
     font-weight: bold;
     align-self: flex-start;
+    letter-spacing: 0.5px;
   }
   .tag-easy   { background: #1a3a2a; color: #4ecca3; border: 1px solid #4ecca3; }
   .tag-medium { background: #3a2a1a; color: #f0a040; border: 1px solid #f0a040; }
   .tag-hard   { background: #3a1a1a; color: #e94560; border: 1px solid #e94560; }
 
-  .case-company { font-size: 13px; color: #888; }
+  .case-company { font-size: 12px; color: #6688aa; letter-spacing: 0.3px; }
   .case-situation {
-    font-size: 16px;
-    line-height: 1.6;
-    color: #eee;
+    font-size: 17px;
+    line-height: 1.65;
+    color: #f0f0f0;
     flex: 1;
+    font-weight: 500;
   }
-  .case-hint { font-size: 12px; color: #6688aa; font-style: italic; }
+  .case-hint { font-size: 12px; color: #5577aa; font-style: italic; }
 
   /* Feedback overlay */
   .feedback {
@@ -129,41 +145,82 @@
     border-radius: 14px;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.15s;
-    font-size: 32px;
+    font-size: 34px;
     font-weight: bold;
     letter-spacing: 2px;
   }
-  .feedback.show { opacity: 1; }
-  .feedback.success { background: rgba(78,204,163,0.25); color: #4ecca3; }
-  .feedback.fail    { background: rgba(233,69,96,0.25);  color: #e94560; }
+  /* 成功：フェードイン＋拡大 */
+  @keyframes fb-success {
+    0%   { opacity: 0; transform: scale(0.7); }
+    50%  { opacity: 1; transform: scale(1.08); }
+    80%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  /* 失敗：フェードイン＋シェイク */
+  @keyframes fb-fail {
+    0%   { opacity: 0; transform: translateX(0); }
+    15%  { opacity: 1; transform: translateX(-8px); }
+    35%  { transform: translateX(8px); }
+    55%  { transform: translateX(-6px); }
+    75%  { transform: translateX(4px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  .feedback.show.success {
+    opacity: 1;
+    background: rgba(78,204,163,0.22);
+    color: #4ecca3;
+    animation: fb-success 0.35s ease-out forwards;
+  }
+  .feedback.show.fail {
+    opacity: 1;
+    background: rgba(233,69,96,0.22);
+    color: #e94560;
+    animation: fb-fail 0.4s ease-out forwards;
+  }
 
   /* Choices */
   .choices {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 7px;
     flex-shrink: 0;
   }
   .choice-btn {
     width: 100%;
-    min-height: 52px;
-    padding: 10px 14px;
-    border: 1px solid #0f3460;
-    border-radius: 10px;
+    min-height: 54px;
+    padding: 11px 16px;
+    border: 1px solid #1e3060;
+    border-radius: 12px;
     background: #16213e;
-    color: #eee;
+    color: #d8e0f0;
     font-size: 14px;
-    line-height: 1.4;
+    line-height: 1.45;
     text-align: left;
     cursor: pointer;
-    transition: transform 0.1s, background 0.1s;
     touch-action: manipulation;
+    /* 押下感：影あり、scale + opacity */
+    box-shadow: 0 2px 0 #0a1628, inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: transform 0.08s, opacity 0.08s, box-shadow 0.08s;
+    will-change: transform;
   }
-  .choice-btn:active:not(:disabled) { transform: scale(0.98); background: #1e2d50; }
-  .choice-btn:disabled { opacity: 0.5; cursor: default; }
-  .choice-btn.correct { background: #1a3a2a; border-color: #4ecca3; color: #4ecca3; }
-  .choice-btn.wrong   { background: #3a1a1a; border-color: #e94560; color: #e94560; }
+  .choice-btn:active:not(:disabled) {
+    transform: translateY(2px) scale(0.985);
+    box-shadow: none;
+    opacity: 0.9;
+  }
+  .choice-btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+  .choice-btn.correct {
+    background: #162e20;
+    border-color: #4ecca3;
+    color: #4ecca3;
+    box-shadow: 0 0 0 1px rgba(78,204,163,0.3);
+  }
+  .choice-btn.wrong {
+    background: #2e1616;
+    border-color: #e94560;
+    color: #e94560;
+    box-shadow: 0 0 0 1px rgba(233,69,96,0.3);
+  }
 
   /* ===== GAMEOVER SCREEN ===== */
   #screen-gameover {
@@ -201,7 +258,7 @@
     width: 100%;
     max-width: 300px;
     height: 52px;
-    background: linear-gradient(135deg, #f0c040, #e07020);
+    background: linear-gradient(160deg, #f5cc50, #e07020);
     color: #1a1a2e;
     font-size: 16px;
     font-weight: bold;
@@ -209,9 +266,15 @@
     border-radius: 26px;
     cursor: pointer;
     touch-action: manipulation;
-    transition: opacity 0.1s, transform 0.1s;
+    box-shadow: 0 4px 0 #9a4800, 0 6px 12px rgba(224,112,32,0.35);
+    transition: transform 0.08s, box-shadow 0.08s, opacity 0.08s;
+    will-change: transform;
   }
-  .btn-primary:active { opacity: 0.85; transform: scale(0.97); }
+  .btn-primary:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 #9a4800, 0 2px 6px rgba(224,112,32,0.25);
+    opacity: 0.92;
+  }
 
   /* Timer bar */
   .timer-bar-wrap {
@@ -262,11 +325,13 @@
 
   /* Combo multiplier badge on COMBO stat */
   #combo-mult {
-    font-size: 10px;
-    color: #a78bfa;
+    font-size: 11px;
+    font-weight: bold;
+    color: #c4b0ff;
     display: block;
     line-height: 1;
-    min-height: 12px;
+    min-height: 13px;
+    letter-spacing: 0.5px;
   }
 </style>
 </head>
@@ -351,7 +416,7 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.2.0';
+const VERSION = 'v1.3.0';
 
 /* ===================================================
    BEST SCORE
@@ -570,6 +635,13 @@ function updateStatusUI() {
   elComboMult.textContent = mult > 1 ? '×' + mult : '';
 }
 
+/* stat-pop を1要素にトリガー（アニメーション再生のためクラスを付け直す） */
+function popStat(el) {
+  el.classList.remove('stat-pop');
+  void el.offsetWidth; // reflow で animation リセット
+  el.classList.add('stat-pop');
+}
+
 /* コンボ倍率を返す */
 function getComboMultiplier(combo) {
   if (combo >= 6) return 2;
@@ -718,6 +790,9 @@ function onChoiceClick(btn) {
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
     if (!wasFocusMode) btn.classList.add('correct');
     showFeedback(true, gained);
+    // スコア・コンボをポップ
+    popStat(elScore);
+    popStat(elCombo);
   } else {
     // 難易度傾斜：30秒以内（後半）は信頼減少+1
     const trustLoss = state.time <= 30 ? 3 : 2;
