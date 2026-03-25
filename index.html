@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.0.0 -->
+<!-- v1.1.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -240,6 +240,7 @@
       信頼度を保ちながらスコアを稼ごう！<br><br>
       時間切れ・信頼度0でゲームオーバー
     </div>
+    <div id="title-best" style="font-size:15px;color:#f0c040;font-weight:bold;"></div>
     <button class="btn-primary" id="btn-start">スタート</button>
     <div id="version-display" style="font-size:11px;color:#444;position:absolute;bottom:max(env(safe-area-inset-bottom,8px),8px);right:12px;"></div>
   </div>
@@ -292,6 +293,7 @@
       <div class="over-stat-row"><span>最終スコア</span><span id="res-score"></span></div>
       <div class="over-stat-row"><span>最大コンボ</span><span id="res-combo"></span></div>
       <div class="over-stat-row"><span>残り信頼度</span><span id="res-trust"></span></div>
+      <div class="over-stat-row" style="border-top:1px solid #0f3460;padding-top:10px;margin-top:0;"><span>🏅 ベストスコア</span><span id="res-best"></span></div>
     </div>
     <button class="btn-primary" id="btn-restart">もう一度プレイ</button>
   </div>
@@ -302,7 +304,38 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.0.0';
+const VERSION = 'v1.1.0';
+
+/* ===================================================
+   BEST SCORE
+=================================================== */
+const BEST_KEY = 'teleapo_best_score';
+
+function loadBestScore() {
+  try {
+    const v = parseInt(localStorage.getItem(BEST_KEY), 10);
+    return (Number.isFinite(v) && v >= 0) ? v : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function saveBestScore(score) {
+  try {
+    localStorage.setItem(BEST_KEY, String(score));
+  } catch (e) {
+    // localStorage 使用不可の場合は無視
+  }
+}
+
+function updateBestScore(score) {
+  const current = loadBestScore();
+  if (score > current) {
+    saveBestScore(score);
+    return true; // 更新あり
+  }
+  return false;
+}
 
 /* ===================================================
    CASE DATA
@@ -457,7 +490,9 @@ const elChoices = [document.getElementById('btn-c0'), document.getElementById('b
 const elResScore= document.getElementById('res-score');
 const elResCombo= document.getElementById('res-combo');
 const elResTrust= document.getElementById('res-trust');
+const elResBest = document.getElementById('res-best');
 const elRank    = document.getElementById('over-rank');
+const elTitleBest = document.getElementById('title-best');
 
 /* ===================================================
    SCREEN
@@ -466,6 +501,7 @@ function showScreen(name) {
   Object.keys(screens).forEach(k => {
     screens[k].classList.toggle('active', k === name);
   });
+  if (name === 'title') renderTitleBest();
 }
 
 /* ===================================================
@@ -555,9 +591,13 @@ function triggerGameOver() {
   state.phase = 'over';
   stopTimer();
 
+  const isNew = updateBestScore(state.score);
+  const best  = loadBestScore();
+
   elResScore.textContent = state.score + ' pt';
   elResCombo.textContent = state.maxCombo + ' 連続';
   elResTrust.textContent = Math.max(0, state.trust);
+  elResBest.textContent  = best + ' pt' + (isNew ? ' 🎉NEW!' : '');
   elRank.textContent     = getRank(state.score);
 
   showScreen('gameover');
@@ -649,6 +689,13 @@ function startGame() {
    EVENT LISTENERS
 =================================================== */
 document.getElementById('version-display').textContent = VERSION;
+
+// タイトル画面のベストスコア初期表示
+function renderTitleBest() {
+  const best = loadBestScore();
+  elTitleBest.textContent = best > 0 ? '🏅 ベストスコア：' + best + ' pt' : '';
+}
+renderTitleBest();
 
 document.getElementById('btn-start').addEventListener('pointerup', (e) => {
   e.preventDefault();
