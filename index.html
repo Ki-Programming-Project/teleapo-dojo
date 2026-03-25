@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.5.0 -->
+<!-- v1.6.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -62,6 +62,7 @@
   #screen-game {
     padding: 8px 12px;
     gap: 8px;
+    position: relative;
   }
 
   /* Status bar */
@@ -380,6 +381,50 @@
   .btn-diff.selected-easy   { border-color: #4ecca3; color: #4ecca3; background: #162e22; }
   .btn-diff.selected-normal { border-color: #f0c040; color: #f0c040; background: #2a2010; }
   .btn-diff.selected-hard   { border-color: #e94560; color: #e94560; background: #2e1018; }
+
+  /* ===== SCORE FLOAT (+N) ===== */
+  #score-float {
+    position: absolute;
+    top: 12px; right: 16px;
+    font-size: 22px;
+    font-weight: bold;
+    color: #f0c040;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(0);
+  }
+  @keyframes score-float-anim {
+    0%   { opacity: 1; transform: translateY(0)   scale(1); }
+    30%  { opacity: 1; transform: translateY(-10px) scale(1.2); }
+    100% { opacity: 0; transform: translateY(-32px) scale(0.9); }
+  }
+  #score-float.pop {
+    animation: score-float-anim 0.7s ease-out forwards;
+  }
+
+  /* ===== COMBO FIRE ===== */
+  /* コンボ数に応じて stat-box の輝きを強化 */
+  .stat-box.combo-fire-low  { border-color: rgba(240,192,64,0.7) !important; }
+  .stat-box.combo-fire-high { border-color: rgba(233,69,96,0.9) !important; }
+  @keyframes combo-pulse {
+    0%,100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
+  }
+  .stat-box.combo-fire-high { animation: combo-pulse 0.5s ease-in-out infinite; }
+
+  /* ===== NEXT RANK ===== */
+  #next-rank {
+    font-size: 11px;
+    color: #778899;
+    text-align: right;
+    flex-shrink: 0;
+    min-height: 14px;
+    padding-right: 2px;
+  }
+  #next-rank.close { color: #f0c040; font-weight: bold; }
+
+  /* ===== BONUS TAG ===== */
+  .tag-bonus { background: #2a1a40; color: #d8a0ff; border: 1px solid #d8a0ff; }
 </style>
 </head>
 <body>
@@ -448,6 +493,10 @@
       <button class="choice-btn" id="btn-c1"></button>
       <button class="choice-btn" id="btn-c2"></button>
     </div>
+    <!-- 加点フロート表示（case-cardの外、choicesの上に絶対配置） -->
+    <div id="score-float"></div>
+    <!-- 次ランクまでの距離 -->
+    <div id="next-rank"></div>
   </div>
 
   <!-- GAMEOVER -->
@@ -469,7 +518,7 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.5.0';
+const VERSION = 'v1.6.0';
 
 /* ===================================================
    DIFFICULTY CONFIG
@@ -701,9 +750,16 @@ const CASES = [
 ];
 
 /* ===================================================
-   RANK
+   RANK THRESHOLDS（次ランク目標）
 =================================================== */
-function getRank(score) {
+const RANK_THRESHOLDS = [60, 120, 200, 300]; // 昇順
+
+function getNextRankInfo(score) {
+  for (const t of RANK_THRESHOLDS) {
+    if (score < t) return t - score; // 残り点数
+  }
+  return null; // 最高ランク到達済み
+}
   if (score >= 300) return '🏆 伝説の架電師';
   if (score >= 200) return '🥇 エース営業';
   if (score >= 120) return '🥈 一人前の営業';
@@ -720,14 +776,15 @@ const INITIAL_STATE = {
   time: 60,
   combo: 0,
   maxCombo: 0,
-  phase: 'title',   // title | playing | over
+  phase: 'title',
   locked: false,
   caseIndex: -1,
   prevCaseIndex: -1,
-  focusMode: false,  // 集中モード発動中
-  focusUsed: false,  // 集中モード使用済み
-  muted: false,      // ミュート状態
-  difficulty: 'normal', // 難易度
+  focusMode: false,
+  focusUsed: false,
+  muted: false,
+  difficulty: 'normal',
+  isBonus: false,       // ボーナス案件フラグ
 };
 
 let state = Object.assign({}, INITIAL_STATE);
@@ -757,6 +814,9 @@ const elTitleBest = document.getElementById('title-best');
 const elComboMult = document.getElementById('combo-mult');
 const elBtnSkill  = document.getElementById('btn-skill');
 const elBtnMute   = document.getElementById('btn-mute');
+const elScoreFloat= document.getElementById('score-float');
+const elNextRank  = document.getElementById('next-rank');
+const elComboBox  = document.querySelector('.stat-box:last-child'); // COMBOのstat-box
 
 /* ===================================================
    SCREEN
@@ -782,6 +842,19 @@ function updateStatusUI() {
   // コンボ倍率バッジ更新
   const mult = getComboMultiplier(state.combo);
   elComboMult.textContent = mult > 1 ? '×' + mult : '';
+  // 次ランク表示更新
+  const remaining = getNextRankInfo(state.score);
+  if (remaining === null) {
+    elNextRank.textContent = '🏆 最高ランク達成！';
+    elNextRank.className = 'close';
+  } else {
+    elNextRank.textContent = '次ランクまで あと ' + remaining + 'pt';
+    elNextRank.className = remaining <= 20 ? 'close' : '';
+  }
+  // コンボ炎エフェクト
+  elComboBox.classList.remove('combo-fire-low', 'combo-fire-high');
+  if (state.combo >= 6)      elComboBox.classList.add('combo-fire-high');
+  else if (state.combo >= 3) elComboBox.classList.add('combo-fire-low');
 }
 
 /* 難易度ボタンのUI同期 */
@@ -795,8 +868,18 @@ function updateDifficultyUI() {
 /* stat-pop を1要素にトリガー（アニメーション再生のためクラスを付け直す） */
 function popStat(el) {
   el.classList.remove('stat-pop');
-  void el.offsetWidth; // reflow で animation リセット
+  void el.offsetWidth;
   el.classList.add('stat-pop');
+}
+
+/* 加点フロート表示 */
+function showScoreFloat(gained, isBonus) {
+  const label = (isBonus ? '💜×2 +' : '+') + gained;
+  elScoreFloat.textContent = label;
+  elScoreFloat.style.color = isBonus ? '#d8a0ff' : '#f0c040';
+  elScoreFloat.classList.remove('pop');
+  void elScoreFloat.offsetWidth;
+  elScoreFloat.classList.add('pop');
 }
 
 /* コンボ倍率を返す */
@@ -838,11 +921,17 @@ function updateMuteUI() {
 }
 
 function renderCase(c) {
-  elTag.textContent     = c.tag === 'easy' ? '易しい' : c.tag === 'medium' ? '普通' : '難しい';
-  elTag.className       = 'case-tag tag-' + c.tag;
+  // ボーナスタグ or 難易度タグ
+  if (state.isBonus) {
+    elTag.textContent = '💜 ボーナス案件';
+    elTag.className   = 'case-tag tag-bonus';
+  } else {
+    elTag.textContent = c.tag === 'easy' ? '易しい' : c.tag === 'medium' ? '普通' : '難しい';
+    elTag.className   = 'case-tag tag-' + c.tag;
+  }
   elCompany.textContent = c.company;
   elSit.textContent     = c.situation;
-  elHint.textContent    = 'ヒント：' + c.hint;
+  elHint.textContent    = state.isBonus ? 'ヒント：' + c.hint + '（成功で2倍スコア！）' : 'ヒント：' + c.hint;
 
   // shuffle choices
   const shuffled = shuffleArray([...c.choices]);
@@ -869,6 +958,8 @@ function pickCase() {
   } while (idx === state.prevCaseIndex && tries < 10);
   state.prevCaseIndex = state.caseIndex;
   state.caseIndex = idx;
+  // ボーナス案件：15%の確率（連続ボーナスは防ぐ）
+  state.isBonus = !state.isBonus && Math.random() < 0.15;
   return CASES[idx];
 }
 
@@ -955,54 +1046,61 @@ function onChoiceClick(btn) {
   }
 
   if (isCorrect) {
-    // コンボ倍率 × 難易度スコア倍率
-    const cfg    = DIFFICULTY_CONFIG[state.difficulty];
-    const combo  = getComboMultiplier(state.combo);
-    const gained = Math.round(10 * combo * cfg.scoreMult);
+    // コンボ倍率 × 難易度スコア倍率 × ボーナス倍率
+    const cfg      = DIFFICULTY_CONFIG[state.difficulty];
+    const comboMul = getComboMultiplier(state.combo);
+    const bonusMul = state.isBonus ? 2 : 1;
+    const gained   = Math.round(10 * comboMul * cfg.scoreMult * bonusMul);
     state.score += gained;
     state.trust  = Math.min(10, state.trust + 1);
     state.combo += 1;
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
     if (!wasFocusMode) btn.classList.add('correct');
-    showFeedback(true, gained);
-    SE.success(); // 成功音
-    // スコア・コンボをポップ
+    showFeedback(true, gained, state.isBonus);
+    showScoreFloat(gained, state.isBonus);
+    SE.success();
     popStat(elScore);
     popStat(elCombo);
   } else {
     // 難易度別 trust 減少量（後半はさらに+1）
     const cfg = DIFFICULTY_CONFIG[state.difficulty];
-    const halfTime = DIFFICULTY_CONFIG[state.difficulty].time / 2;
+    const halfTime = cfg.time / 2;
     const trustLoss = state.time <= halfTime ? cfg.trustLossLate : cfg.trustLossBase;
     state.score  = Math.max(0, state.score - 5);
     state.trust -= trustLoss;
     state.combo  = 0;
     btn.classList.add('wrong');
     elChoices.forEach(b => { if (b.dataset.correct === '1') b.classList.add('correct'); });
-    showFeedback(false, 0);
-    SE.fail(); // 失敗音
+    showFeedback(false, 0, false);
+    SE.fail();
   }
 
   updateStatusUI();
 
   // check game over by trust
   if (state.trust <= 0) {
-    setTimeout(() => { triggerGameOver(); }, 700);
+    setTimeout(() => { triggerGameOver(); }, 800);
     return;
   }
 
-  // next case
+  // テンポ：成功は早く(600ms)、失敗はやや長く(1100ms)
+  const nextDelay = isCorrect ? 600 : 1100;
   setTimeout(() => {
     if (state.phase !== 'playing') return;
     state.locked = false;
     renderCase(pickCase());
-  }, 900);
+  }, nextDelay);
 }
 
-function showFeedback(success, gained) {
-  let text = success
-    ? (gained > 10 ? '✅ 成功！ +' + gained + 'pt' : '✅ 成功！')
-    : '❌ 失敗…';
+function showFeedback(success, gained, isBonus) {
+  let text;
+  if (success) {
+    if (isBonus)        text = '💜 BONUS！ +' + gained + 'pt';
+    else if (gained > 10) text = '✅ 成功！ +' + gained + 'pt';
+    else                  text = '✅ 成功！';
+  } else {
+    text = '❌ 失敗…';
+  }
   elFeedback.textContent = text;
   elFeedback.className   = 'feedback show ' + (success ? 'success' : 'fail');
 }
@@ -1032,6 +1130,7 @@ function startGame() {
     focusUsed: false,
     muted: prevMuted,
     difficulty: diff,
+    isBonus: false,
   };
 
   SE.init();          // AudioContext 初期化（初回のみ有効）
