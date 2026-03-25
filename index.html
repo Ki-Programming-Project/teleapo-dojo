@@ -760,6 +760,8 @@ function getNextRankInfo(score) {
   }
   return null; // 最高ランク到達済み
 }
+
+function getRank(score) {
   if (score >= 300) return '🏆 伝説の架電師';
   if (score >= 200) return '🥇 エース営業';
   if (score >= 120) return '🥈 一人前の営業';
