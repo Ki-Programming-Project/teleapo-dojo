@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.1.0 -->
+<!-- v1.2.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -227,6 +227,47 @@
     border-radius: 2px;
     transition: width 0.9s linear;
   }
+
+  /* ===== SKILL ===== */
+  .skill-bar {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
+  .btn-skill {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 20px;
+    border: 2px solid #a78bfa;
+    background: #1a1230;
+    color: #a78bfa;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: opacity 0.1s, transform 0.1s, background 0.15s;
+  }
+  .btn-skill:active:not(:disabled) { transform: scale(0.96); }
+  .btn-skill.active {
+    background: #a78bfa;
+    color: #1a1230;
+  }
+  .btn-skill:disabled {
+    opacity: 0.3;
+    cursor: default;
+    border-color: #555;
+    color: #555;
+    background: transparent;
+  }
+
+  /* Combo multiplier badge on COMBO stat */
+  #combo-mult {
+    font-size: 10px;
+    color: #a78bfa;
+    display: block;
+    line-height: 1;
+    min-height: 12px;
+  }
 </style>
 </head>
 <body>
@@ -263,11 +304,17 @@
       <div class="stat-box">
         <div class="stat-label">COMBO</div>
         <div class="stat-value combo" id="val-combo">0</div>
+        <span id="combo-mult"></span>
       </div>
     </div>
 
     <div class="timer-bar-wrap">
       <div class="timer-bar" id="timer-bar"></div>
+    </div>
+
+    <!-- スキルバー -->
+    <div class="skill-bar">
+      <button class="btn-skill" id="btn-skill">⚡ 集中モード</button>
     </div>
 
     <div class="case-card" id="case-card">
@@ -304,7 +351,7 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.1.0';
+const VERSION = 'v1.2.0';
 
 /* ===================================================
    BEST SCORE
@@ -467,6 +514,8 @@ const INITIAL_STATE = {
   locked: false,
   caseIndex: -1,
   prevCaseIndex: -1,
+  focusMode: false,  // 集中モード発動中
+  focusUsed: false,  // 集中モード使用済み
 };
 
 let state = Object.assign({}, INITIAL_STATE);
@@ -493,6 +542,8 @@ const elResTrust= document.getElementById('res-trust');
 const elResBest = document.getElementById('res-best');
 const elRank    = document.getElementById('over-rank');
 const elTitleBest = document.getElementById('title-best');
+const elComboMult = document.getElementById('combo-mult');
+const elBtnSkill  = document.getElementById('btn-skill');
 
 /* ===================================================
    SCREEN
@@ -514,6 +565,36 @@ function updateStatusUI() {
   elCombo.textContent = state.combo;
   const pct = (state.time / 60) * 100;
   elTimerBar.style.width = pct + '%';
+  // コンボ倍率バッジ更新
+  const mult = getComboMultiplier(state.combo);
+  elComboMult.textContent = mult > 1 ? '×' + mult : '';
+}
+
+/* コンボ倍率を返す */
+function getComboMultiplier(combo) {
+  if (combo >= 6) return 2;
+  if (combo >= 3) return 1.5;
+  return 1;
+}
+
+/* スキルボタンのUI同期 */
+function updateSkillUI() {
+  if (state.focusUsed) {
+    // 使用済み：グレーアウト
+    elBtnSkill.disabled = true;
+    elBtnSkill.classList.remove('active');
+    elBtnSkill.textContent = '⚡ 集中モード（使用済）';
+  } else if (state.focusMode) {
+    // 発動中：アクティブ表示
+    elBtnSkill.disabled = true;
+    elBtnSkill.classList.add('active');
+    elBtnSkill.textContent = '⚡ 集中モード（発動中）';
+  } else {
+    // 使用可能
+    elBtnSkill.disabled = false;
+    elBtnSkill.classList.remove('active');
+    elBtnSkill.textContent = '⚡ 集中モード';
+  }
 }
 
 function renderCase(c) {
@@ -614,24 +695,38 @@ function onChoiceClick(btn) {
   // disable all buttons
   elChoices.forEach(b => { b.disabled = true; });
 
-  const isCorrect = btn.dataset.correct === '1';
+  // 集中モード発動中は強制成功
+  const isCorrect = state.focusMode ? true : btn.dataset.correct === '1';
+
+  // 集中モード消費（発動中だった場合）
+  const wasFocusMode = state.focusMode;
+  if (state.focusMode) {
+    state.focusMode = false;
+    state.focusUsed = true;
+    // 全ボタンを正解色に（どれを押しても成功扱い）
+    elChoices.forEach(b => { b.classList.add('correct'); });
+    updateSkillUI();
+  }
 
   if (isCorrect) {
-    const bonus = Math.floor(state.combo / 3);
-    state.score += 10 + bonus * 5;
+    // コンボ倍率適用スコア計算
+    const mult = getComboMultiplier(state.combo);
+    const gained = Math.round(10 * mult);
+    state.score += gained;
     state.trust  = Math.min(10, state.trust + 1);
     state.combo += 1;
     if (state.combo > state.maxCombo) state.maxCombo = state.combo;
-    btn.classList.add('correct');
-    showFeedback(true);
+    if (!wasFocusMode) btn.classList.add('correct');
+    showFeedback(true, gained);
   } else {
+    // 難易度傾斜：30秒以内（後半）は信頼減少+1
+    const trustLoss = state.time <= 30 ? 3 : 2;
     state.score  = Math.max(0, state.score - 5);
-    state.trust -= 2;
+    state.trust -= trustLoss;
     state.combo  = 0;
     btn.classList.add('wrong');
-    // show correct
     elChoices.forEach(b => { if (b.dataset.correct === '1') b.classList.add('correct'); });
-    showFeedback(false);
+    showFeedback(false, 0);
   }
 
   updateStatusUI();
@@ -650,8 +745,11 @@ function onChoiceClick(btn) {
   }, 900);
 }
 
-function showFeedback(success) {
-  elFeedback.textContent = success ? '✅ 成功！' : '❌ 失敗…';
+function showFeedback(success, gained) {
+  let text = success
+    ? (gained > 10 ? '✅ 成功！ +' + gained + 'pt' : '✅ 成功！')
+    : '❌ 失敗…';
+  elFeedback.textContent = text;
   elFeedback.className   = 'feedback show ' + (success ? 'success' : 'fail');
 }
 
@@ -671,9 +769,12 @@ function startGame() {
     locked: false,
     caseIndex: -1,
     prevCaseIndex: -1,
+    focusMode: false,
+    focusUsed: false,
   };
 
   updateStatusUI();
+  updateSkillUI();
   elTimerBar.style.transition = 'none';
   elTimerBar.style.width = '100%';
   // re-enable transition after forced reflow
@@ -712,6 +813,15 @@ elChoices.forEach(btn => {
     e.preventDefault();
     onChoiceClick(btn);
   });
+});
+
+// スキルボタン：集中モード
+elBtnSkill.addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  if (state.phase !== 'playing') return;
+  if (state.focusUsed || state.focusMode || state.locked) return;
+  state.focusMode = true;
+  updateSkillUI();
 });
 
 })();
