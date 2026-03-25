@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.0.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -240,6 +241,7 @@
       時間切れ・信頼度0でゲームオーバー
     </div>
     <button class="btn-primary" id="btn-start">スタート</button>
+    <div id="version-display" style="font-size:11px;color:#444;position:absolute;bottom:max(env(safe-area-inset-bottom,8px),8px);right:12px;"></div>
   </div>
 
   <!-- GAME -->
@@ -299,6 +301,8 @@
 <script>
 (function() {
 'use strict';
+
+const VERSION = 'v1.0.0';
 
 /* ===================================================
    CASE DATA
@@ -644,6 +648,8 @@ function startGame() {
 /* ===================================================
    EVENT LISTENERS
 =================================================== */
+document.getElementById('version-display').textContent = VERSION;
+
 document.getElementById('btn-start').addEventListener('pointerup', (e) => {
   e.preventDefault();
   startGame();
