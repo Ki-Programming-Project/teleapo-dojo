@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.4.1 -->
+<!-- v1.5.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -354,6 +354,32 @@
     min-height: 13px;
     letter-spacing: 0.5px;
   }
+
+  /* ===== DIFFICULTY SELECTOR ===== */
+  .diff-selector {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 300px;
+  }
+  .btn-diff {
+    flex: 1;
+    height: 44px;
+    border-radius: 10px;
+    border: 2px solid #2a3a5a;
+    background: #16213e;
+    color: #778;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.08s, opacity 0.08s, border-color 0.15s, color 0.15s, background 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .btn-diff:active { transform: scale(0.95); opacity: 0.85; }
+  .btn-diff.selected-easy   { border-color: #4ecca3; color: #4ecca3; background: #162e22; }
+  .btn-diff.selected-normal { border-color: #f0c040; color: #f0c040; background: #2a2010; }
+  .btn-diff.selected-hard   { border-color: #e94560; color: #e94560; background: #2e1018; }
 </style>
 </head>
 <body>
@@ -368,6 +394,11 @@
       時間切れ・信頼度0でゲームオーバー
     </div>
     <div id="title-best" style="font-size:15px;color:#f0c040;font-weight:bold;"></div>
+    <div class="diff-selector">
+      <button class="btn-diff" id="btn-diff-easy">EASY</button>
+      <button class="btn-diff" id="btn-diff-normal">NORMAL</button>
+      <button class="btn-diff" id="btn-diff-hard">HARD</button>
+    </div>
     <button class="btn-primary" id="btn-start">スタート</button>
     <div id="version-display" style="font-size:11px;color:#444;position:absolute;bottom:max(env(safe-area-inset-bottom,8px),8px);right:12px;"></div>
   </div>
@@ -438,7 +469,19 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.4.1';
+const VERSION = 'v1.5.0';
+
+/* ===================================================
+   DIFFICULTY CONFIG
+=================================================== */
+const DIFFICULTY_CONFIG = {
+  easy:   { time: 80, trustLossBase: 1, trustLossLate: 2, scoreMult: 0.8,  label: 'EASY'   },
+  normal: { time: 60, trustLossBase: 2, trustLossLate: 3, scoreMult: 1.0,  label: 'NORMAL' },
+  hard:   { time: 50, trustLossBase: 3, trustLossLate: 4, scoreMult: 1.5,  label: 'HARD'   },
+};
+
+// タイトル画面で選択中の難易度（startGame前に確定）
+let selectedDifficulty = 'normal';
 
 /* ===================================================
    SOUND ENGINE (Web Audio API)
@@ -684,6 +727,7 @@ const INITIAL_STATE = {
   focusMode: false,  // 集中モード発動中
   focusUsed: false,  // 集中モード使用済み
   muted: false,      // ミュート状態
+  difficulty: 'normal', // 難易度
 };
 
 let state = Object.assign({}, INITIAL_STATE);
@@ -732,11 +776,20 @@ function updateStatusUI() {
   elTrust.textContent = Math.max(0, state.trust);
   elTime.textContent  = Math.max(0, state.time);
   elCombo.textContent = state.combo;
-  const pct = (state.time / 60) * 100;
+  const maxTime = DIFFICULTY_CONFIG[state.difficulty].time;
+  const pct = (state.time / maxTime) * 100;
   elTimerBar.style.width = pct + '%';
   // コンボ倍率バッジ更新
   const mult = getComboMultiplier(state.combo);
   elComboMult.textContent = mult > 1 ? '×' + mult : '';
+}
+
+/* 難易度ボタンのUI同期 */
+function updateDifficultyUI() {
+  ['easy', 'normal', 'hard'].forEach(d => {
+    const btn = document.getElementById('btn-diff-' + d);
+    btn.className = 'btn-diff' + (selectedDifficulty === d ? ' selected-' + d : '');
+  });
 }
 
 /* stat-pop を1要素にトリガー（アニメーション再生のためクラスを付け直す） */
@@ -861,12 +914,16 @@ function triggerGameOver() {
 
   const isNew = updateBestScore(state.score);
   const best  = loadBestScore();
+  const cfg   = DIFFICULTY_CONFIG[state.difficulty];
 
   elResScore.textContent = state.score + ' pt';
   elResCombo.textContent = state.maxCombo + ' 連続';
   elResTrust.textContent = Math.max(0, state.trust);
   elResBest.textContent  = best + ' pt' + (isNew ? ' 🎉NEW!' : '');
   elRank.textContent     = getRank(state.score);
+  // 難易度ラベルをタイトルに追記
+  document.querySelector('#screen-gameover .over-title').textContent =
+    '🚫 ゲームオーバー［' + cfg.label + '］';
 
   showScreen('gameover');
 }
@@ -898,9 +955,10 @@ function onChoiceClick(btn) {
   }
 
   if (isCorrect) {
-    // コンボ倍率適用スコア計算
-    const mult = getComboMultiplier(state.combo);
-    const gained = Math.round(10 * mult);
+    // コンボ倍率 × 難易度スコア倍率
+    const cfg    = DIFFICULTY_CONFIG[state.difficulty];
+    const combo  = getComboMultiplier(state.combo);
+    const gained = Math.round(10 * combo * cfg.scoreMult);
     state.score += gained;
     state.trust  = Math.min(10, state.trust + 1);
     state.combo += 1;
@@ -912,8 +970,10 @@ function onChoiceClick(btn) {
     popStat(elScore);
     popStat(elCombo);
   } else {
-    // 難易度傾斜：30秒以内（後半）は信頼減少+1
-    const trustLoss = state.time <= 30 ? 3 : 2;
+    // 難易度別 trust 減少量（後半はさらに+1）
+    const cfg = DIFFICULTY_CONFIG[state.difficulty];
+    const halfTime = DIFFICULTY_CONFIG[state.difficulty].time / 2;
+    const trustLoss = state.time <= halfTime ? cfg.trustLossLate : cfg.trustLossBase;
     state.score  = Math.max(0, state.score - 5);
     state.trust -= trustLoss;
     state.combo  = 0;
@@ -953,13 +1013,15 @@ function showFeedback(success, gained) {
 function startGame() {
   stopTimer();
 
-  // ミュート状態をリスタート間で引き継ぐ
+  // 引き継ぎ値
   const prevMuted = state.muted;
+  const diff = selectedDifficulty;
+  const cfg  = DIFFICULTY_CONFIG[diff];
 
   state = {
     score: 0,
     trust: 10,
-    time: 60,
+    time: cfg.time,
     combo: 0,
     maxCombo: 0,
     phase: 'playing',
@@ -969,6 +1031,7 @@ function startGame() {
     focusMode: false,
     focusUsed: false,
     muted: prevMuted,
+    difficulty: diff,
   };
 
   SE.init();          // AudioContext 初期化（初回のみ有効）
@@ -993,6 +1056,20 @@ function startGame() {
    EVENT LISTENERS
 =================================================== */
 document.getElementById('version-display').textContent = VERSION;
+
+// 難易度ボタン初期表示
+updateDifficultyUI();
+
+// 難易度選択イベント
+['easy', 'normal', 'hard'].forEach(d => {
+  document.getElementById('btn-diff-' + d).addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    SE.init();
+    SE.click();
+    selectedDifficulty = d;
+    updateDifficultyUI();
+  });
+});
 
 // タイトル画面のベストスコア初期表示
 function renderTitleBest() {
