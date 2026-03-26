@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.7.0 -->
+<!-- v1.8.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -226,33 +226,61 @@
   /* ===== GAMEOVER SCREEN ===== */
   #screen-gameover {
     align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 24px;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 16px 20px env(safe-area-inset-bottom, 16px);
+    overflow: hidden;
   }
-  .over-title { font-size: 24px; font-weight: bold; color: #e94560; }
+  .over-title { font-size: 18px; font-weight: bold; color: #e94560; margin-top: 6px; }
   .over-rank {
-    font-size: 48px;
+    font-size: 36px;
     font-weight: bold;
     color: #f0c040;
-    text-shadow: 0 0 24px rgba(240,192,64,0.5);
+    text-shadow: 0 0 18px rgba(240,192,64,0.5);
+    line-height: 1.1;
+  }
+  /* ミス理由バッジ */
+  #over-reason {
+    font-size: 12px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: #2e1a1a;
+    color: #e94560;
+    border: 1px solid #e94560;
+    font-weight: bold;
+  }
+  /* あと○点誘導 */
+  #over-nudge {
+    font-size: 14px;
+    color: #f0c040;
+    font-weight: bold;
+    text-align: center;
+    min-height: 18px;
   }
   .over-stats {
     background: #16213e;
-    border-radius: 14px;
-    padding: 16px 24px;
+    border-radius: 12px;
+    padding: 10px 18px;
     width: 100%;
     border: 1px solid #0f3460;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 7px;
   }
   .over-stat-row {
     display: flex;
     justify-content: space-between;
-    font-size: 15px;
+    font-size: 14px;
   }
   .over-stat-row span:last-child { font-weight: bold; color: #f0c040; }
+  /* ラスト1回誘導 */
+  #over-hook {
+    font-size: 13px;
+    color: #a78bfa;
+    text-align: center;
+    min-height: 16px;
+    font-style: italic;
+  }
 
   /* ===== BUTTONS ===== */
   .btn-primary {
@@ -568,16 +596,23 @@
 
   <!-- GAMEOVER -->
   <div id="screen-gameover" class="screen">
+    <!-- ① 即リトライ（最上部・最大） -->
+    <button class="btn-primary" id="btn-restart" style="margin-top:4px;">🔄 もう一度！</button>
+    <!-- ② 結果サマリ -->
     <div class="over-title">🚫 ゲームオーバー</div>
     <div class="over-rank" id="over-rank"></div>
-    <div id="res-diff"></div>
+    <div id="over-reason"></div>
+    <!-- ③ 誘導メッセージ -->
+    <div id="over-nudge"></div>
+    <!-- ④ スコア詳細（コンパクト） -->
     <div class="over-stats">
-      <div class="over-stat-row"><span>最終スコア</span><span id="res-score"></span></div>
+      <div class="over-stat-row"><span>スコア</span><span id="res-score"></span></div>
+      <div class="over-stat-row"><span id="res-diff-label">前回比</span><span id="res-diff"></span></div>
       <div class="over-stat-row"><span>最大コンボ</span><span id="res-combo"></span></div>
-      <div class="over-stat-row"><span>残り信頼度</span><span id="res-trust"></span></div>
-      <div class="over-stat-row" style="border-top:1px solid #0f3460;padding-top:10px;margin-top:0;"><span>🏅 ベストスコア</span><span id="res-best"></span></div>
+      <div class="over-stat-row" style="border-top:1px solid #0f3460;padding-top:7px;"><span>🏅 ベスト</span><span id="res-best"></span></div>
     </div>
-    <button class="btn-primary" id="btn-restart">もう一度プレイ</button>
+    <!-- ⑤ ラスト1回フック -->
+    <div id="over-hook"></div>
   </div>
 
 </div>
@@ -586,7 +621,10 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.7.0';
+const VERSION = 'v1.8.0';
+
+// プレイ回数カウンター（セッション内）
+let playCount = 0;
 
 /* ===================================================
    DIFFICULTY CONFIG
@@ -855,7 +893,8 @@ const INITIAL_STATE = {
   muted: false,
   difficulty: 'normal',
   isBonus: false,
-  prevScore: 0,         // 前回スコア（リスタート間引き継ぎ）
+  prevScore: 0,
+  gameOverReason: '',   // 'time' | 'trust'
 };
 
 let state = Object.assign({}, INITIAL_STATE);
@@ -878,10 +917,12 @@ const elFeedback= document.getElementById('feedback');
 const elChoices = [document.getElementById('btn-c0'), document.getElementById('btn-c1'), document.getElementById('btn-c2')];
 const elResScore= document.getElementById('res-score');
 const elResCombo= document.getElementById('res-combo');
-const elResTrust= document.getElementById('res-trust');
 const elResBest = document.getElementById('res-best');
 const elResDiff = document.getElementById('res-diff');
 const elRank    = document.getElementById('over-rank');
+const elOverReason = document.getElementById('over-reason');
+const elOverNudge  = document.getElementById('over-nudge');
+const elOverHook   = document.getElementById('over-hook');
 const elTitleBest = document.getElementById('title-best');
 const elComboMult = document.getElementById('combo-mult');
 const elBtnSkill  = document.getElementById('btn-skill');
@@ -1070,6 +1111,7 @@ function startTimer() {
     updateStatusUI();
     if (state.time <= 0) {
       state.time = 0;
+      state.gameOverReason = 'time';
       updateStatusUI();
       triggerGameOver();
     }
@@ -1090,47 +1132,65 @@ function triggerGameOver() {
   if (state.phase === 'over') return;
   state.phase = 'over';
   stopTimer();
+  playCount++;
 
-  const isNew = updateBestScore(state.score);
-  const best  = loadBestScore();
-  const cfg   = DIFFICULTY_CONFIG[state.difficulty];
-  const diff  = state.score - state.prevScore;
+  const isNew  = updateBestScore(state.score);
+  const best   = loadBestScore();
+  const cfg    = DIFFICULTY_CONFIG[state.difficulty];
+  const scoreDiff = state.score - state.prevScore;
 
+  // スコア・コンボ
   elResScore.textContent = state.score + ' pt';
   elResCombo.textContent = state.maxCombo + ' 連続';
-  elResTrust.textContent = Math.max(0, state.trust);
   elRank.textContent     = getRank(state.score);
 
-  // ベストスコア表示
+  // ベスト
   elResBest.textContent = best + ' pt' + (isNew ? ' 🎉NEW!' : '');
-  if (isNew) {
-    elResBest.classList.add('best-new');
+  isNew ? elResBest.classList.add('best-new') : elResBest.classList.remove('best-new');
+
+  // 前回比
+  if (state.prevScore > 0) {
+    elResDiff.textContent = (scoreDiff >= 0 ? '▲ +' : '▼ ') + scoreDiff + 'pt';
+    elResDiff.className   = scoreDiff >= 0 ? 'positive' : 'negative';
   } else {
-    elResBest.classList.remove('best-new');
+    elResDiff.textContent = '初プレイ';
+    elResDiff.className   = '';
   }
 
-  // 前回比表示
-  if (state.prevScore > 0) {
-    if (diff > 0) {
-      elResDiff.textContent = '▲ 前回より +' + diff + 'pt';
-      elResDiff.className = 'positive';
-    } else if (diff < 0) {
-      elResDiff.textContent = '▼ 前回より ' + diff + 'pt';
-      elResDiff.className = 'negative';
-    } else {
-      elResDiff.textContent = '前回と同スコア';
-      elResDiff.className = '';
-    }
-  } else {
-    elResDiff.textContent = '';
-    elResDiff.className = '';
-  }
+  // ミス理由バッジ
+  elOverReason.textContent = state.gameOverReason === 'trust'
+    ? '💔 信頼度がなくなりました'
+    : '⏰ タイムアップ';
 
   // 難易度ラベル
   document.querySelector('#screen-gameover .over-title').textContent =
-    '🚫 ゲームオーバー［' + cfg.label + '］';
+    '🚫 GAME OVER ［' + cfg.label + '］';
 
-  // リスタートボタン点滅強調
+  // ---- 誘導メッセージ（あと○点） ----
+  const toNext = getNextRankInfo(state.score);
+  const toBest = best - state.score;
+  if (isNew) {
+    elOverNudge.textContent = '🏆 ベスト更新！次はさらに上を目指せ！';
+  } else if (toBest > 0 && toBest <= 30) {
+    elOverNudge.textContent = '🔥 ベストまであと ' + toBest + 'pt！';
+  } else if (toNext !== null && toNext <= 25) {
+    elOverNudge.textContent = '⬆️ ランクアップまであと ' + toNext + 'pt！';
+  } else if (toNext !== null) {
+    elOverNudge.textContent = '次ランクまで ' + toNext + 'pt';
+  } else {
+    elOverNudge.textContent = '';
+  }
+
+  // ---- ラスト1回フック ----
+  const hooks = [
+    'あと1回だけ！',
+    '今日のベストを更新しよう',
+    'もう少しで上達できる！',
+    '次こそコンボを伸ばせ！',
+  ];
+  elOverHook.textContent = playCount >= 2 ? hooks[(playCount - 2) % hooks.length] : '';
+
+  // リスタートボタン点滅
   const btnRestart = document.getElementById('btn-restart');
   btnRestart.classList.remove('pulse');
   void btnRestart.offsetWidth;
@@ -1205,12 +1265,13 @@ function onChoiceClick(btn) {
 
   // check game over by trust
   if (state.trust <= 0) {
-    setTimeout(() => { triggerGameOver(); }, 800);
+    state.gameOverReason = 'trust';
+    setTimeout(() => { triggerGameOver(); }, 500);
     return;
   }
 
-  // テンポ：成功450ms / 失敗950ms
-  const nextDelay = isCorrect ? 450 : 950;
+  // テンポ：成功350ms / 失敗500ms
+  const nextDelay = isCorrect ? 350 : 500;
   setTimeout(() => {
     if (state.phase !== 'playing') return;
     state.locked = false;
@@ -1259,6 +1320,7 @@ function startGame() {
     difficulty: diff,
     isBonus: false,
     prevScore,
+    gameOverReason: '',
   };
 
   // リスタートボタンの点滅を止める
