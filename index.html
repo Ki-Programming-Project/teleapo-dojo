@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v1.8.0 -->
+<!-- v1.9.0 -->
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -621,7 +621,7 @@
 (function() {
 'use strict';
 
-const VERSION = 'v1.8.0';
+const VERSION = 'v1.9.0';
 
 // プレイ回数カウンター（セッション内）
 let playCount = 0;
@@ -851,6 +851,320 @@ const CASES = [
       { text: '「ご不快をおかけして申し訳ございません。一点だけよろしいでしょうか？」', correct: true },
       { text: '「そんなはずはないです、私は初めてお電話しています」と反論', correct: false },
       { text: '「失礼しました」と即電話を切る', correct: false },
+    ]
+  },
+
+  // ── ここから追加分（v1.9.0） ─────────────────────────────
+  // 制約: tag は 'easy'/'medium'/'hard' のみ
+  //       choices は必ず3件、correct:true は必ず1件のみ
+  //       hint は18文字以内推奨（超えると表示がカットされる）
+  // ─────────────────────────────────────────────────────────
+
+  // === EASY（追加8件） ===
+  {
+    tag: 'easy', company: '原田不動産（不動産）',
+    situation: '電話口で名前を聞き返された。どう対応する？',
+    hint: '明瞭に・ゆっくり伝える',
+    choices: [
+      { text: '「失礼しました。〇〇社の△△と申します。お聞き取りいただけましたか？」', correct: true },
+      { text: '「さっき言いましたよね」と繰り返しを嫌がる', correct: false },
+      { text: '早口でもう一度名前を言う', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '村田クリニック（医療）',
+    situation: '受付の方が「どのようなご用件ですか？」と聞いてきた。',
+    hint: '端的に・担当者へ繋いでもらう',
+    choices: [
+      { text: '「〇〇のご提案でご連絡しました。ご担当者様はいらっしゃいますか？」', correct: true },
+      { text: '「詳しくは担当者にしか言えません」と断る', correct: false },
+      { text: '長々と商品説明を始める', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '森山印刷（印刷業）',
+    situation: '「誰から聞いたんですか？」と警戒された。',
+    hint: '正直に・透明性を持って答える',
+    choices: [
+      { text: '「弊社でご支援できそうな企業様にご連絡しております」と正直に答える', correct: true },
+      { text: '「知り合いから伺いました」と嘘をつく', correct: false },
+      { text: '「それはお答えできません」と拒否する', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '岡田運輸（物流）',
+    situation: '「どこで番号を調べたんですか？」と聞かれた。',
+    hint: '情報源を誠実に伝える',
+    choices: [
+      { text: '「御社のホームページに掲載されていた番号にご連絡しました」', correct: true },
+      { text: '「それは言えません」とごまかす', correct: false },
+      { text: '「業界リストから入手しました」とだけ言う', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '田村スポーツ（小売）',
+    situation: '留守番電話につながってしまった。どうする？',
+    hint: '要件を端的に残して折り返しを促す',
+    choices: [
+      { text: '「〇〇社の△△です。○○に関してご連絡しました。折り返しいただけますと幸いです」と吹き込む', correct: true },
+      { text: 'そのまま切る（どうせ折り返しは来ない）', correct: false },
+      { text: '長々と商品説明を留守電に吹き込む', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '桑田会計事務所（士業）',
+    situation: '相手が「あなたの会社、知らないな」と言った。',
+    hint: '会社紹介は短く・興味を引いて次へ',
+    choices: [
+      { text: '「〇〇社といいまして、△△を専門にしております。30秒だけご説明してもよいですか？」', correct: true },
+      { text: '「有名ですよ！調べてみてください」と言い張る', correct: false },
+      { text: '「知らないなら結構です」と切る', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '坂本電機（電機卸）',
+    situation: '「今、会議中なんだけど」と言われた。',
+    hint: '会議明けのアポを今確保する',
+    choices: [
+      { text: '「大変失礼しました。会議が終わる頃、改めてご連絡してもよろしいでしょうか？」', correct: true },
+      { text: '「1分で終わります！」と強引に続ける', correct: false },
+      { text: '「では資料だけ送ります」と一方的に言う', correct: false },
+    ]
+  },
+  {
+    tag: 'easy', company: '安田農園（農業）',
+    situation: '相手が「うちは小さいから関係ないよ」と言った。',
+    hint: '規模に関係なく価値を伝える',
+    choices: [
+      { text: '「小規模の事業者様こそ効果を実感いただいております」と伝える', correct: true },
+      { text: '「そうですね、ではまた大きくなったらどうぞ」と切る', correct: false },
+      { text: '「そんなことはありません！」と否定する', correct: false },
+    ]
+  },
+
+  // === MEDIUM（追加12件） ===
+  {
+    tag: 'medium', company: '栗原建築（建築設計）',
+    situation: '「今の業者で満足している」と言われた。',
+    hint: 'ニーズの上乗せを探る',
+    choices: [
+      { text: '「それは良かったです。追加でお役に立てる点があればと思いまして」', correct: true },
+      { text: '「うちの方が安いですよ」と価格で対抗する', correct: false },
+      { text: '「そのまま使い続けるのはもったいないですよ」と否定する', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '宮崎食堂チェーン（飲食）',
+    situation: '「担当者は私じゃないので決められない」と言われた。',
+    hint: '決裁者へのルートを確保する',
+    choices: [
+      { text: '「ありがとうございます。ご担当者様にお繋ぎいただくことはできますか？」', correct: true },
+      { text: '「あなたが判断してください」と押しつける', correct: false },
+      { text: '「では社長に直接連絡します」と脅す', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '植田製作所（金属加工）',
+    situation: '「予算がない」と断られた。',
+    hint: '費用対効果と段階導入を提案',
+    choices: [
+      { text: '「費用対効果についてお話しさせてください。小規模からの導入も可能です」', correct: true },
+      { text: '「予算が出たらまた電話します」とすぐ引く', correct: false },
+      { text: '「無料でいいので使ってみてください」と言う', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '三上法律事務所（士業）',
+    situation: '「メールで送ってほしい」と言われた。',
+    hint: 'メールを起点に次のアポを確保',
+    choices: [
+      { text: '「かしこまりました。送付後に一度ご確認のお電話をしてもよいですか？」', correct: true },
+      { text: '「ではメールします」と言って電話を切る', correct: false },
+      { text: '「メールより電話の方が早いです」と無視する', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '上田自動車（ディーラー）',
+    situation: '「とりあえずパンフレットだけください」と言われた。',
+    hint: '資料配布を訪問のきっかけにする',
+    choices: [
+      { text: '「喜んでお持ちします。来週、直接お伺いしてもよいですか？」', correct: true },
+      { text: '「郵送しますね」だけで電話を切る', correct: false },
+      { text: '「パンフレットより話を聞いてください」と断る', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '西川旅行代理店（旅行）',
+    situation: '「前の担当者に嫌な思いをさせられた」と言われた。',
+    hint: '謝罪を先に・自分は違うと示す',
+    choices: [
+      { text: '「大変ご不快をおかけして申し訳ありませんでした。私は改めてお役に立てればと思います」', correct: true },
+      { text: '「それは前任者の問題です」と責任を押し付ける', correct: false },
+      { text: '「うちの担当者がそんなことをするはずがありません」と否定する', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '南川物産（輸入卸）',
+    situation: '「もう少し安くなりませんか？」と聞かれた。',
+    hint: '価値の説明を先・安易値引き禁止',
+    choices: [
+      { text: '「まずご提供できる価値についてご説明し、その上でご相談させてください」', correct: true },
+      { text: '「わかりました、5%引きにします！」とすぐ折れる', correct: false },
+      { text: '「これ以上は無理です」と突っぱねる', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '宇野印刷（印刷）',
+    situation: '「ライバル社にも同じ電話をしているんでしょう？」と言われた。',
+    hint: '御社を重視していることを誠実に伝える',
+    choices: [
+      { text: '「御社のご状況をお伺いした上でご連絡しており、特にお力になれると感じました」', correct: true },
+      { text: '「していません！御社だけです！」と嘘をつく', correct: false },
+      { text: '「そうです、たくさんに電話しています」と言い放つ', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '吉田製菓（食品製造）',
+    situation: '「部下に聞かせてからでないと動けない」と言われた。',
+    hint: '複数人向けの説明機会を設定する',
+    choices: [
+      { text: '「ではご担当者様も一緒に、改めてご説明の機会をいただけますか？」', correct: true },
+      { text: '「社長が決めれば部下は従いますよ」と言う', correct: false },
+      { text: '「では部下の方に直接電話します」と言う', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '成田運送（物流）',
+    situation: '「今は繁忙期で話を聞く余裕がない」と言われた。',
+    hint: '繁忙期明けのアポを今確保する',
+    choices: [
+      { text: '「それは大変ですね。繁忙期が落ち着いた頃に改めてご連絡してもよいですか？」', correct: true },
+      { text: '「繁忙期こそ弊社が必要です！」と強引に続ける', correct: false },
+      { text: '「では結構です」と切る', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '大山歯科（医療）',
+    situation: '「ホームページを見て連絡してきたんですか？」と確認された。',
+    hint: '調査の姿勢を見せて信頼を得る',
+    choices: [
+      { text: '「はい、拝見しまして御社に合うご提案ができると思いご連絡しました」', correct: true },
+      { text: '「見ていません、リストから電話しました」と正直に言う', correct: false },
+      { text: '「見ました！素晴らしいサイトですね！」とお世辞を言う', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '松井商事（総合商社）',
+    situation: '「社内で検討してから折り返します」と言われた。期限が決まらない。',
+    hint: 'こちらから期日を提案して主導権を持つ',
+    choices: [
+      { text: '「ありがとうございます。では来週水曜にこちらからご連絡してもよいですか？」', correct: true },
+      { text: '「いつでもいいです」と丸投げする', correct: false },
+      { text: '「いつ頃になりますか？」と詰め気味に聞く', correct: false },
+    ]
+  },
+
+  // === HARD（追加8件） ===
+  {
+    tag: 'hard', company: 'グローバル商事（大手商社）',
+    situation: '「もう契約する気はない」と強く断られた。',
+    hint: '撤退しつつ未来の接点を残す',
+    choices: [
+      { text: '「承知しました。もし状況が変わった際はまたご連絡させてください」', correct: true },
+      { text: '「なぜですか！理由を教えてください！」と詰め寄る', correct: false },
+      { text: '「わかりました」と言って即ガチャ切りする', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: '帝都ホテル（ホテル）',
+    situation: '「クレームがあって御社の評判が悪い」と言われた。',
+    hint: '否定せず事実確認・真摯に対応する',
+    choices: [
+      { text: '「貴重なご意見をありがとうございます。詳しくお聞かせいただけますか？」', correct: true },
+      { text: '「そのような評判は聞いていません」と反論する', correct: false },
+      { text: '「どこで聞きましたか？」と詮索する', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: 'SKY物産（商社）',
+    situation: '「君に決定権はあるの？」と圧をかけてきた。',
+    hint: '正直に答え・上長連携を提案する',
+    choices: [
+      { text: '「ご提案まで私が担当しており、詳細は上の者と改めてご説明できます」', correct: true },
+      { text: '「もちろんあります！」と嘘をつく', correct: false },
+      { text: '「それは関係ありません」と無視する', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: '藤田建設（大手ゼネコン）',
+    situation: '「前回の提案は的外れだった」と言われた（再訪問時）。',
+    hint: '失敗を認め今回との違いを示す',
+    choices: [
+      { text: '「その節は失礼しました。今回は御社のご状況を改めてお聞きした上でご提案します」', correct: true },
+      { text: '「そんなことはなかったと思います」と反論する', correct: false },
+      { text: '「ではまた別の機会に」と逃げる', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: 'TL電子（精密機器）',
+    situation: '「法人向けじゃないなら要らない」と言われたが、法人対応もある。',
+    hint: '誤解を解く・正確な情報を伝える',
+    choices: [
+      { text: '「法人向けプランもございます。ご説明してもよいですか？」', correct: true },
+      { text: '「そうですね、残念です」とそのまま引く', correct: false },
+      { text: '「調べてからかけてきてください」と怒る', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: '北斗商会（卸売）',
+    situation: '「今の担当者を通してくれ」と言われたが担当者が退職している。',
+    hint: '事実を伝えつつ新しい関係構築を提案',
+    choices: [
+      { text: '「前担当者は退職しておりまして、私が引き継いでおります。改めてご挨拶できますか？」', correct: true },
+      { text: '「前担当者はもういません」と事務的に言う', correct: false },
+      { text: '「前担当者はいます」と嘘をつく', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: 'エース物流（3PL）',
+    situation: '「5分でわかる資料を今すぐ送れるなら話を聞く」と条件をつけられた。',
+    hint: 'すぐ動ける姿勢でチャンスをつかむ',
+    choices: [
+      { text: '「かしこまりました。今すぐお送りします。確認後に一分だけお時間をいただけますか？」', correct: true },
+      { text: '「5分の資料はありません」と断る', correct: false },
+      { text: '「資料より話を聞いてください」と条件を無視する', correct: false },
+    ]
+  },
+  {
+    tag: 'hard', company: '桐島グループ（持株会社）',
+    situation: '「経営陣に直接話してもらわないと意味がない」と言われた。',
+    hint: '役員アポへの道筋を今作る',
+    choices: [
+      { text: '「ぜひそうしたいです。経営層へのご紹介をいただくことは可能でしょうか？」', correct: true },
+      { text: '「では経営陣の直通番号を教えてください」と要求する', correct: false },
+      { text: '「あなたでも十分です」と言って話を続ける', correct: false },
+    ]
+  },
+
+  // === BONUS向け特殊シチュエーション（2件） ===
+  {
+    tag: 'hard', company: '伝説の架電師（特別案件）',
+    situation: '「君のトーク、気に入った。本題を話してみろ」と言われた！チャンス到来。',
+    hint: 'チャンスを逃さず核心を端的に',
+    choices: [
+      { text: '「ありがとうございます！一言で言うと、〇〇によって御社の××を改善できます」', correct: true },
+      { text: '「えっ…本当ですか…」とどぎまぎして止まる', correct: false },
+      { text: '「では資料を送ります」と逃げる', correct: false },
+    ]
+  },
+  {
+    tag: 'medium', company: '春日商事（中堅企業）',
+    situation: '「ちょうど同じようなサービスを探していたんだよ」と言われた！',
+    hint: 'ニーズがある今・次の一手を即提案',
+    choices: [
+      { text: '「それは良かったです！詳しくお伺いしてもよいですか？いつがご都合よいですか？」', correct: true },
+      { text: '「では資料をお送りします」と機会を先送りする', correct: false },
+      { text: '「弊社が一番です！」と一方的に売り込む', correct: false },
     ]
   },
 ];
