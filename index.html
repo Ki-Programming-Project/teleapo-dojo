@@ -282,6 +282,21 @@
     font-style: italic;
   }
 
+  /* タイトルへ戻るボタン（セカンダリ） */
+  #btn-to-title {
+    min-height: 44px;
+    padding: 0 20px;
+    border: 1px solid #3a4a6a;
+    border-radius: 22px;
+    background: transparent;
+    color: #8899bb;
+    font-size: 13px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: color 0.15s, border-color 0.15s, opacity 0.08s;
+  }
+  #btn-to-title:active { opacity: 0.7; }
+
   /* ===== BUTTONS ===== */
   .btn-primary {
     width: 100%;
@@ -613,6 +628,8 @@
     </div>
     <!-- ⑤ ラスト1回フック -->
     <div id="over-hook"></div>
+    <!-- ⑥ タイトルへ戻る -->
+    <button id="btn-to-title">タイトルへ戻る</button>
   </div>
 
 </div>
@@ -1695,6 +1712,12 @@ document.getElementById('btn-restart').addEventListener('pointerup', (e) => {
   e.preventDefault();
   SE.click();
   startGame();
+});
+
+document.getElementById('btn-to-title').addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  SE.click();
+  showScreen('title');
 });
 
 elChoices.forEach(btn => {
